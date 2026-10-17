@@ -1,0 +1,30 @@
+{
+  "best_model": "XGBoost",
+  "classes": [
+    "Analysis",
+    "Backdoor",
+    "DoS",
+    "Exploits",
+    "Fuzzers",
+    "Generic",
+    "Normal",
+    "Reconnaissance",
+    "Shellcode",
+    "Worms"
+  ],
+  "metrics": {
+    "RandomForest": {
+      "accuracy": 0.6698543212083297,
+      "macro_f1": 0.5205302994909823,
+      "weighted_f1": 0.7176552558367542,
+      "fit_seconds": 23.58
+    },
+    "XGBoost": {
+      "accuracy": 0.74519617481455,
+      "macro_f1": 0.5316884307619351,
+      "weighted_f1": 0.7730122316613378,
+      "fit_seconds": 130.55
+    }
+  },
+  "trained_at": "2026-10-17T10:29:29.506358+00:00"
+}
