@@ -306,8 +306,19 @@ def render_batch_results(df: pd.DataFrame) -> None:
 st.sidebar.title("🛡️ NIDS Control")
 st.sidebar.caption("UNSW-NB15 · Random Forest + XGBoost")
 
+
+def default_api_url() -> str:
+    # Priority: env var > Streamlit secrets > localhost default.
+    if os.environ.get("NIDS_API_URL"):
+        return os.environ["NIDS_API_URL"]
+    try:
+        return st.secrets["NIDS_API_URL"]
+    except Exception:  # noqa: BLE001 - secrets.toml may not exist
+        return "http://localhost:8000"
+
+
 use_api = st.sidebar.toggle("Use FastAPI service", value=False)
-api_url = st.sidebar.text_input("API URL", os.environ.get("NIDS_API_URL", "http://localhost:8000"))
+api_url = st.sidebar.text_input("API URL", default_api_url())
 model_ready = predict.model_ready()
 
 if use_api:

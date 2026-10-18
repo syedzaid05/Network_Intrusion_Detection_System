@@ -138,20 +138,25 @@ warning. The API/dashboard can talk to each other (see [Dashboard](#dashboard)).
 
 ### Streamlit Community Cloud (free, easiest)
 
-1. Push this repository to GitHub.
-2. Go to [share.streamlit.io](https://share.streamlit.io) → **New app** → select the repo.
-3. Set **Main file path** to `dashboard/app.py` and confirm the app URL.
-4. Streamlit Cloud picks up `requirements.txt` and the dark theme from
-   `.streamlit/config.toml` automatically.
+The repository is already deployment-ready: the dark theme (`.streamlit/config.toml`),
+metrics, evaluation figures and `reports/test_predictions.csv` are committed, and
+`requirements.txt` contains every dependency.
 
-Deploying with trained model artifacts is recommended so the dashboard has
-metrics, predictions and figures out of the box:
+1. Go to [share.streamlit.io](https://share.streamlit.io) → **New app** → select
+   this repository and branch `main`.
+2. Set **Main file path** to `dashboard/app.py`.
+3. Under **Advanced settings** choose **Python 3.12** (xgboost 2.1 and
+   imbalanced-learn 0.12 don't ship wheels for 3.13 yet), then click **Deploy**.
+4. The app boots in degraded mode (metrics, batch CSV analysis, live monitoring
+   and reports all work without the model binaries).
 
-- Commit or upload the contents of `models/`, `reports/` (metrics JSON,
-  `test_predictions.csv`, figures) alongside the code, **or**
-- Run `python scripts/run_pipeline.py` at least once locally, then upload the
-  generated `models/` and `reports/` artifacts to the repo (they are large, so
-  prefer Git LFS or a cloud drive referenced via an env var if needed).
+To also run **local-model predictions** (Single Prediction / Batch / PCAP without
+the API) you need the ~24 MB model binaries, which are gitignored:
+
+- **Git LFS:** `git lfs install && git lfs track "models/*.joblib" && git add models/*.joblib`, commit and push
+- **Or** score through the API instead: enable **Use FastAPI service** in the
+  sidebar and set the **API URL** (see below), or pre-fill it with the
+  `NIDS_API_URL` secret/env var.
 
 ### Self-hosting (Docker-ready host / private server)
 
@@ -161,7 +166,7 @@ uvicorn api.main:app --host 0.0.0.0 --port 8000   # optional backend
 streamlit run dashboard/app.py --server.address 0.0.0.0 --server.port 8501
 ```
 
-Optional env vars for the dashboard:
+Optional env vars / Streamlit secrets for the dashboard:
 
 | Variable | Purpose |
 |----------|---------|
