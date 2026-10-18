@@ -1,0 +1,36 @@
+{
+  "RandomForest": {
+    "accuracy": 0.8474751988560193,
+    "precision": 0.7586368977673326,
+    "recall": 0.8909333456000736,
+    "f1": 0.8194799974613383,
+    "roc_auc": 0.9512792943564655,
+    "pr_auc": 0.9319466662723952,
+    "mcc": 0.695572846186089,
+    "false_positive_rate": 0.18014383441501491,
+    "true_positive": 19368,
+    "true_negative": 28044,
+    "false_positive": 6162,
+    "false_negative": 2371,
+    "threshold": 0.72,
+    "f1_optimal_threshold": 0.35,
+    "fit_seconds": 22.52
+  },
+  "XGBoost": {
+    "accuracy": 0.854571454106712,
+    "precision": 0.770684920603335,
+    "recall": 0.8907953447720687,
+    "f1": 0.8263986685443605,
+    "roc_auc": 0.9572225189885081,
+    "pr_auc": 0.9442700043076845,
+    "mcc": 0.7078533182176043,
+    "false_positive_rate": 0.16844997953575397,
+    "true_positive": 19365,
+    "true_negative": 28444,
+    "false_positive": 5762,
+    "false_negative": 2374,
+    "threshold": 0.76,
+    "f1_optimal_threshold": 0.43,
+    "fit_seconds": 7.81
+  }
+}

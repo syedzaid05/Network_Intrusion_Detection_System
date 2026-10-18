@@ -24,6 +24,150 @@ from src import config, pcap_extractor, predict  # noqa: E402
 
 st.set_page_config(page_title="NIDS Security Dashboard", page_icon="🛡️", layout="wide")
 
+# ---------------------------------------------------------------- theme / CSS
+st.markdown(
+    """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    html, body, [class*="css"], .stApp, .st-emotion-cache {
+        font-family: 'Inter', 'Segoe UI', sans-serif;
+    }
+
+    /* Dark gradient background with subtle color grade */
+    .stApp {
+        background:
+            radial-gradient(1200px 600px at 85% -10%, rgba(56, 189, 248, 0.10), transparent 60%),
+            radial-gradient(900px 500px at -10% 110%, rgba(168, 85, 247, 0.10), transparent 60%),
+            linear-gradient(180deg, #0b1220 0%, #0e1729 55%, #0b1220 100%);
+        color: #e2e8f0;
+    }
+
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0d1526 0%, #111b33 100%);
+        border-right: 1px solid rgba(94, 234, 212, 0.15);
+    }
+    [data-testid="stSidebar"] * { color: #cbd5e1; }
+    [data-testid="stSidebar"] .stTitle {
+        background: linear-gradient(90deg, #5eead4, #38bdf8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 700;
+    }
+
+    /* Header title gradient */
+    h1, h2, h3 {
+        color: #f1f5f9;
+        font-weight: 700;
+    }
+    h1 {
+        background: linear-gradient(90deg, #5eead4 0%, #38bdf8 45%, #a78bfa 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        padding-bottom: 4px;
+    }
+    h2 { border-left: 4px solid #38bdf8; padding-left: 10px; }
+
+    /* Metric cards: gradient glass tiles */
+    [data-testid="stMetric"] {
+        background: linear-gradient(145deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.65));
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 14px;
+        padding: 16px 18px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    }
+    [data-testid="stMetricValue"] {
+        background: linear-gradient(90deg, #5eead4, #38bdf8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 700;
+    }
+    [data-testid="stMetricLabel"] { color: #94a3b8; font-weight: 600; }
+
+    /* Tabs */
+    [data-testid="stTabs"] [role="tablist"] {
+        gap: 6px;
+        background: rgba(15, 23, 42, 0.6);
+        border-radius: 12px;
+        padding: 6px;
+        border: 1px solid rgba(148, 163, 184, 0.12);
+    }
+    [data-testid="stTabs"] [role="tab"] {
+        border-radius: 9px;
+        color: #94a3b8 !important;
+        font-weight: 600;
+        padding: 8px 14px;
+        transition: all 0.2s ease;
+    }
+    [data-testid="stTabs"] [role="tab"]:hover {
+        color: #7dd3fc !important;
+        background: rgba(56, 189, 248, 0.08);
+    }
+    [data-testid="stTabs"] [role="tab"][aria-selected="true"] {
+        background: linear-gradient(90deg, rgba(94, 234, 212, 0.15), rgba(56, 189, 248, 0.15));
+        color: #5eead4 !important;
+        border: 1px solid rgba(94, 234, 212, 0.3);
+    }
+
+    /* Buttons */
+    .stButton > button, [data-testid="stFormSubmitButton"] button, .stDownloadButton > button {
+        border-radius: 10px;
+        font-weight: 600;
+        border: 1px solid rgba(56, 189, 248, 0.35);
+        color: #e2e8f0;
+        background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9));
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .stButton > button:hover, .stDownloadButton > button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 16px rgba(56, 189, 248, 0.25);
+    }
+    [data-testid="baseButton-primary"], [data-testid="stFormSubmitButton"] button[kind="primary"] {
+        background: linear-gradient(90deg, #0ea5e9 0%, #14b8a6 100%);
+        border: none;
+        color: #06131f;
+    }
+    [data-testid="baseButton-primary"]:hover {
+        background: linear-gradient(90deg, #38bdf8 0%, #2dd4bf 100%);
+        box-shadow: 0 4px 20px rgba(20, 184, 166, 0.35);
+    }
+
+    /* Dataframes / inputs */
+    [data-testid="stDataFrame"], [data-testid="stForm"] {
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.15);
+    }
+    [data-testid="stForm"], .stTextInput > div > div, .stSelectbox, .stNumberInput,
+    .stMultiSelect, .stSlider {
+        border-radius: 10px;
+    }
+    [data-testid="stForm"] {
+        background: rgba(15, 23, 42, 0.55);
+        border: 1px solid rgba(148, 163, 184, 0.12);
+        padding: 20px;
+    }
+    .stTextInput input, .stNumberInput input, div[data-baseweb="select"] > div {
+        background-color: rgba(15, 23, 42, 0.8) !important;
+        color: #e2e8f0 !important;
+        border-color: rgba(148, 163, 184, 0.25) !important;
+    }
+
+    /* Alerts */
+    div[data-testid="stAlert"] { border-radius: 12px; opacity: 0.96; }
+
+    /* Dividers */
+    hr { border-color: rgba(148, 163, 184, 0.15); }
+
+    /* Caption */
+    caption, .stCaption, [data-testid="stMarkdownContainer"] p {
+        color: #cbd5e1;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 PROTO_OPTIONS = ["tcp", "udp", "icmp", "arp", "ospf", "sctp", "igmp", "any"]
 SERVICE_OPTIONS = [
     "-", "http", "https", "dns", "ftp", "ftp-data", "smtp", "pop3", "ssh",
@@ -36,12 +180,14 @@ def figure_path(name: str) -> Path:
     return config.FIGURES_DIR / name
 
 
+@st.cache_data(ttl=300)
 def load_metrics() -> dict:
     if config.METRICS_JSON.exists():
         return json.loads(config.METRICS_JSON.read_text())
     return predict.load_metadata().get("metrics", {})
 
 
+@st.cache_data(ttl=300)
 def load_predictions() -> pd.DataFrame:
     path = config.REPORTS_DIR / "test_predictions.csv"
     if not path.exists():
@@ -182,7 +328,23 @@ st.sidebar.markdown(
 )
 
 # ---------------------------------------------------------------- header
-st.title("Network Intrusion Detection Dashboard")
+st.markdown(
+    """
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:2px;">
+      <div style="font-size:2.6rem;">🛡️</div>
+      <div>
+        <div style="font-size:1.9rem;font-weight:700;line-height:1.2;
+             background:linear-gradient(90deg,#5eead4,#38bdf8,#a78bfa);
+             -webkit-background-clip:text;-webkit-text-fill-color:transparent;">
+          Network Intrusion Detection</div>
+        <div style="color:#94a3b8;font-size:0.95rem;">
+          Real-time detection of malicious traffic · UNSW-NB15 · Random Forest + XGBoost
+        </div>
+      </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 st.caption("Detect suspicious network traffic and classify it as normal or malicious.")
 
 tab_overview, tab_single, tab_batch, tab_pcap, tab_monitor, tab_reports = st.tabs(

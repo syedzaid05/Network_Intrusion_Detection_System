@@ -1,0 +1,14 @@
+{
+  "RandomForest": {
+    "accuracy": 0.6698543212083297,
+    "macro_f1": 0.5205302994909823,
+    "weighted_f1": 0.7176552558367542,
+    "fit_seconds": 23.58
+  },
+  "XGBoost": {
+    "accuracy": 0.74519617481455,
+    "macro_f1": 0.5316884307619351,
+    "weighted_f1": 0.7730122316613378,
+    "fit_seconds": 130.55
+  }
+}

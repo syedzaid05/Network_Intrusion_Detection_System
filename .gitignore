@@ -13,10 +13,13 @@ data/processed/
 # Model binaries
 models/*.joblib
 
-# Reports (generated)
+# Reports (generated) - keep small metadata/figures/test preds for the dashboard
 reports/*.csv
-reports/*.json
-reports/figures/*.png
+!reports/test_predictions.csv
+!reports/*.json
+!reports/figures/*.png
+!models/model_metadata.json
+!models/multiclass_metadata.json
 
 # OS / editors
 .DS_Store

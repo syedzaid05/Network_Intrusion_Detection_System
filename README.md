@@ -15,6 +15,7 @@ tree-based models keep full training under ~4 minutes with no GPU.
 - [Requirements](#requirements)
 - [Setup](#setup)
 - [Run](#run)
+- [Deploy](#deploy)
 - [Configuration reference](#configuration-reference)
 - [Dataset & features](#dataset--features)
 - [Pipeline details](#pipeline-details)
@@ -132,6 +133,39 @@ python scripts\score_pcap.py capture.pcap --max-flows 5000
 Running order matters only in that both the API and the dashboard need a trained
 model; without one, `/health` reports `model_missing` and the dashboard shows a
 warning. The API/dashboard can talk to each other (see [Dashboard](#dashboard)).
+
+## Deploy
+
+### Streamlit Community Cloud (free, easiest)
+
+1. Push this repository to GitHub.
+2. Go to [share.streamlit.io](https://share.streamlit.io) → **New app** → select the repo.
+3. Set **Main file path** to `dashboard/app.py` and confirm the app URL.
+4. Streamlit Cloud picks up `requirements.txt` and the dark theme from
+   `.streamlit/config.toml` automatically.
+
+Deploying with trained model artifacts is recommended so the dashboard has
+metrics, predictions and figures out of the box:
+
+- Commit or upload the contents of `models/`, `reports/` (metrics JSON,
+  `test_predictions.csv`, figures) alongside the code, **or**
+- Run `python scripts/run_pipeline.py` at least once locally, then upload the
+  generated `models/` and `reports/` artifacts to the repo (they are large, so
+  prefer Git LFS or a cloud drive referenced via an env var if needed).
+
+### Self-hosting (Docker-ready host / private server)
+
+```bash
+pip install -r requirements.txt
+uvicorn api.main:app --host 0.0.0.0 --port 8000   # optional backend
+streamlit run dashboard/app.py --server.address 0.0.0.0 --server.port 8501
+```
+
+Optional env vars for the dashboard:
+
+| Variable | Purpose |
+|----------|---------|
+| `NIDS_API_URL` | Default FastAPI URL pre-filled in the sidebar |
 
 ## Configuration reference
 
