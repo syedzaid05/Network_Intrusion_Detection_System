@@ -10,8 +10,8 @@ data/raw/*.part
 data/processed/
 *.swap
 
-# Model binaries
-models/*.joblib
+# Model binaries are tracked (needed by the deployed dashboard)
+!models/*.joblib
 
 # Reports (generated) - keep small metadata/figures/test preds for the dashboard
 reports/*.csv
