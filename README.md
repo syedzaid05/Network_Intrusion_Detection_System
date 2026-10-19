@@ -13,6 +13,7 @@ tree-based models keep full training under ~4 minutes with no GPU.
 - [Architecture](#architecture)
 - [Project layout](#project-layout)
 - [Requirements](#requirements)
+- [Quickstart (no training needed)](#quickstart-no-training-needed)
 - [Setup](#setup)
 - [Run](#run)
 - [Deploy](#deploy)
@@ -96,6 +97,45 @@ consistent.
     └── make_sample_batch.py build one larger batch CSV
 ```
 
+## Quickstart (no training needed)
+
+The repo ships with trained models and sample data, so you can try everything in
+under a minute after installing dependencies:
+
+```powershell
+pip install -r requirements.txt
+
+# Dashboard with samples you can click through immediately
+streamlit run dashboard\app.py
+# → Batch Analysis tab: pick data\csvs\sample_mixed_flows.csv
+# → PCAP Analysis tab:  pick data\pcaps\port_scan.pcap  (or syn_flood.pcap, ...)
+```
+
+Or go straight to the CLI / API with the bundled sample captures and CSVs:
+
+```powershell
+# CLI: score a suspicious capture
+python scripts\score_pcap.py data\pcaps\syn_flood.pcap
+
+# API
+uvicorn api.main:app --port 8000
+# then in another terminal:
+curl -F "file=@data/pcaps/syn_flood.pcap" http://localhost:8000/predict/pcap
+curl "http://localhost:8000/example"          # ready-made 42-feature request body
+```
+
+Sample files included (`data/csvs/`, `data/pcaps/`):
+
+| File | What it demonstrates |
+|------|----------------------|
+| `sample_normal_flows.csv` | Benign traffic — should score `Normal` |
+| `sample_attack_flows.csv` | Malicious flows — should score `Malicious` |
+| `sample_mixed_flows.csv`  | Blend of both — best for the dashboard demo |
+| `sample_dos_generic.csv`  | DoS / Generic categories |
+| `sample_exploits_recon.csv` | Exploits / Reconnaissance categories |
+| `sample_small_batch.csv`  | Tiny file for a super-fast first run |
+| `normal_http.pcap`, `port_scan.pcap`, `syn_flood.pcap`, `udp_dns.pcap`, `icmp_ping.pcap`, `mixed_traffic.pcap` | Captures of common benign and attack patterns |
+
 ## Requirements
 
 - Python **3.10+** (developed and tested on **3.13**)
@@ -151,12 +191,12 @@ metrics, evaluation figures and `reports/test_predictions.csv` are committed, an
    and reports all work without the model binaries).
 
 To also run **local-model predictions** (Single Prediction / Batch / PCAP without
-the API) you need the ~24 MB model binaries, which are gitignored:
-
-- **Git LFS:** `git lfs install && git lfs track "models/*.joblib" && git add models/*.joblib`, commit and push
-- **Or** score through the API instead: enable **Use FastAPI service** in the
-  sidebar and set the **API URL** (see below), or pre-fill it with the
-  `NIDS_API_URL` secret/env var.
+the API) the ~24 MB model binaries — `models/ids_pipeline.joblib` and
+`models/ids_multiclass.joblib` — are already committed to the repository, so the
+Streamlit Cloud clone contains everything it needs. If you fork or strip large
+files, you can still score through the API instead: enable **Use FastAPI
+service** in the sidebar and set the **API URL** (see below), or pre-fill it with
+the `NIDS_API_URL` secret/env var.
 
 ### Self-hosting (Docker-ready host / private server)
 
@@ -446,5 +486,6 @@ API/regression tests skip automatically when no trained model is present.
 - The PCAP exporter is approximate (see [PCAP scoring](#pcap-scoring)) — use it
   for triage, not exact replication of the reference feature extractor.
 - Tune threshold behaviour and hyper-parameters in `src/config.py`.
-- Generated artifacts (`data/raw/*.csv`, `models/*.joblib`, `reports/**`) are
-  git-ignored and reproducible from the pipeline.
+- Generated artifacts (`data/raw/*.csv`, `reports/**`) are git-ignored and
+  reproducible from the pipeline; the trained model binaries and sample
+  data/models are committed so the repo works out of the box.

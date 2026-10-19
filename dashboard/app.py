@@ -270,6 +270,29 @@ def find_capture_files(folder: str, recursive: bool = False) -> list[Path]:
     )
 
 
+SCORE_SAMPLES = {
+    "Normal traffic (benign)": "sample_normal_flows.csv",
+    "Attack flows": "sample_attack_flows.csv",
+    "Mixed traffic (demo)": "sample_mixed_flows.csv",
+    "DoS / Generic attacks": "sample_dos_generic.csv",
+}
+
+PCAP_SAMPLES = {
+    "Port scan": "port_scan.pcap",
+    "SYN flood": "syn_flood.pcap",
+    "Normal HTTP": "normal_http.pcap",
+    "Mixed traffic": "mixed_traffic.pcap",
+}
+
+
+def sample_csv_path(name: str) -> Path:
+    return ROOT / "data" / "csvs" / name
+
+
+def sample_pcap_path(name: str) -> Path:
+    return ROOT / "data" / "pcaps" / name
+
+
 def score_batch(raw: pd.DataFrame, use_api: bool, url: str) -> pd.DataFrame:
     if not use_api:
         return predict.predict_dataframe(raw)
@@ -517,10 +540,19 @@ with tab_batch:
     source_name = ""
 
     if source == "Upload a CSV":
-        uploaded = st.file_uploader("Traffic CSV", type=["csv"])
-        if uploaded is not None:
-            raw = pd.read_csv(uploaded)
-            source_name = uploaded.name
+        up_col, sample_col = st.columns([3, 2])
+        with up_col:
+            uploaded = st.file_uploader("Traffic CSV", type=["csv"])
+            if uploaded is not None:
+                raw = pd.read_csv(uploaded)
+                source_name = uploaded.name
+        with sample_col:
+            st.markdown("**Or try a one-click sample**")
+            st.caption("Bundled with the repo — no download needed.")
+            for label, fname in SCORE_SAMPLES.items():
+                if st.button(f"📄 {label}", key=f"csv_{fname}", width="stretch"):
+                    raw = pd.read_csv(sample_csv_path(fname))
+                    source_name = fname
     else:
         folder = st.text_input(
             "Folder path", value=str(config.DATA_RAW), placeholder=r"C:\path\to\csvs"
@@ -569,10 +601,24 @@ with tab_pcap:
     selected_path: Path | None = None
 
     if pcap_source == "Upload a capture":
-        pcap_file = st.file_uploader("Packet capture", type=["pcap", "pcapng"], key="pcap")
-        if pcap_file is not None:
-            pcap_bytes = pcap_file.getvalue()
-            pcap_name = pcap_file.name
+        up_col, sample_col = st.columns([3, 2])
+        with up_col:
+            pcap_file = st.file_uploader("Packet capture", type=["pcap", "pcapng"], key="pcap")
+            if pcap_file is not None:
+                pcap_bytes = pcap_file.getvalue()
+                pcap_name = pcap_file.name
+        with sample_col:
+            st.markdown("**Or try a one-click sample**")
+            st.caption("Bundled with the repo — no download needed.")
+            for label, fname in PCAP_SAMPLES.items():
+                if st.button(f"🛰️ {label}", key=f"pcap_s_{fname}", width="stretch"):
+                    st.session_state["pcap_sample_bytes"] = sample_pcap_path(fname).read_bytes()
+                    st.session_state["pcap_sample_name"] = fname
+
+        stored = st.session_state.get("pcap_sample_bytes")
+        if stored is not None:
+            pcap_bytes = stored
+            pcap_name = st.session_state.get("pcap_sample_name", "sample.pcap")
     else:
         folder = st.text_input(
             "Folder path", value="", placeholder=r"C:\path\to\captures", key="pcap_folder"
