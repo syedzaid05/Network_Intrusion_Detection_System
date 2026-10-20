@@ -539,7 +539,24 @@ degraded mode — by design, so the demo never crashes on cold start.
   analyst's recent-events pane.
 - **Rolling event table** (`actual / predicted / severity / attack_cat /
   attack_cat_pred / attack_probability`) — showing *actual* next to
-  *predicted* makes it easy to demo true/false positives live.
+  *predicted* makes it easy to demo true/false positives live. What each
+  streamed column means (worth knowing for interviews):
+
+  | Column | What it is | How it's produced |
+  |---|---|---|
+  | `attack_probability` | The model's *calibrated* probability (0–1) that the flow is malicious | The saved binary model's output after sigmoid calibration — "0.83" genuinely means 83% confidence. |
+  | `predicted` | Binary verdict: `Normal` or `Attack` | `attack_probability` compared against the tuned decision threshold (0.76). |
+  | `severity` | Triage bucket: `Normal` / `Suspicious` / `Malicious` | Bands: < threshold = Normal; ≥ threshold = Suspicious; ≥ max(0.80, threshold) = Malicious. Tells the analyst *how loudly* to react. |
+  | `actual` | Ground truth: `Normal` or `Attack` (from the test set labels) | Only known because this stream replays labelled `test_predictions.csv`; in true live traffic it would populate after forensics. Comparing `actual` vs `predicted` is exactly how FP/FN are spotted. |
+  | `attack_cat_pred` | The multiclass model's guess: which of the *10 categories* this attack is (`DoS`, `Exploits`, `Generic`, …, or `Normal`) | The second (multiclass) model, always run in parallel with the binary one — binary answers *"is it an attack?"*, this answers *"what kind?"*. |
+  | `attack_cat` | The true category label from the benchmark | Lets you demo category-level accuracy (e.g. predicted `DoS`, actually `DoS`). |
+
+  Note that all six columns are **model outputs or labels — none of the raw
+  42 flow features are streamed here**. The event table is a *verdict feed*,
+  not a packet dump; this separation mirrors real SIEM tools (alerts stream,
+  raw evidence lives in packet storage). If you need the underlying flow
+  features, they're on the Single Prediction tab (all 42, live-editable) or
+  in the batch CSV you upload.
 - **Alert explorer** below, with four filters:
   - **Severity multi-select** (defaults to Malicious + Suspicious — the two
     buckets an analyst acts on);
