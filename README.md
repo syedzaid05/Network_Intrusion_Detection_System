@@ -7,6 +7,16 @@ REST API and a security dashboard.
 Built for a modest laptop (Intel i5 / 8 GB RAM): the **UNSW-NB15** dataset and
 tree-based models keep full training under ~4 minutes with no GPU.
 
+> **⚠️ Live demo note for reviewers:** This app is deployed on the free
+> **Streamlit Community Cloud**. Community Cloud apps go to sleep after
+> **~12 hours of inactivity** (and reboot after ~7 days of sleeping). If the
+> deployed app greets you with "This app has gone to sleep…", simply click
+> **"Yes, get this app back up!"** — it wakes in ~30 seconds. Data is not lost:
+> the models, metrics and sample files are baked into the repository, so the
+> cold start rebuilds everything it needs. There is **no paid tier trick
+> involved** — this behaviour is automatic and applies to every free
+> Streamlit Cloud app.
+
 ## Table of contents
 
 - [Highlights](#highlights)
@@ -17,11 +27,14 @@ tree-based models keep full training under ~4 minutes with no GPU.
 - [Setup](#setup)
 - [Run](#run)
 - [Deploy](#deploy)
+- [Cloud sleep behaviour (Streamlit Community Cloud)](#cloud-sleep-behaviour-streamlit-community-cloud)
 - [Configuration reference](#configuration-reference)
 - [Dataset & features](#dataset--features)
 - [Pipeline details](#pipeline-details)
 - [Prediction API](#prediction-api)
 - [Dashboard](#dashboard)
+- [Dashboard UI walkthrough (every element explained)](#dashboard-ui-walkthrough-every-element-explained)
+- [Feature glossary (the 42 inputs you see in the UI)](#feature-glossary-the-42-inputs-you-see-in-the-ui)
 - [PCAP scoring](#pcap-scoring)
 - [Sample data & helper scripts](#sample-data--helper-scripts)
 - [Reference results (UNSW-NB15 official test set)](#reference-results-unsw-nb15-official-test-set)
@@ -212,6 +225,28 @@ Optional env vars / Streamlit secrets for the dashboard:
 |----------|---------|
 | `NIDS_API_URL` | Default FastAPI URL pre-filled in the sidebar |
 
+## Cloud sleep behaviour (Streamlit Community Cloud)
+
+The hosted demo runs on the free Streamlit Community Cloud, which has one
+behaviour you must know about as a reviewer or interviewer:
+
+- After **~12 hours with no visitors** the container is **put to sleep**.
+- After sleeping for **~7 more days** the app is fully rebooted (fresh VM).
+- On the next visit you may see the *"This app has gone to sleep to save
+  resources"* banner; clicking **"Yes, get this app back up!"** restarts it —
+  the first visit after a wake-up takes ~30–60 s while dependencies install.
+- **Nothing is lost**: model binaries (`models/*.joblib`), metrics JSON,
+  evaluation figures, sample CSVs and sample PCAPs are all **committed to the
+  repository**, so a cold start restores the exact same state.
+- Why sleep exists: Streamlit's free tier gives each user one shared
+  container (~1 GB RAM). To keep that cost-free, idle containers are
+  hibernated. The only ways around it are paid tiers (Streamlit teams / other
+  hosts like Render or Railway with a keep-alive ping) or a scheduled cron
+  ping — not needed for this demo.
+- **Interview one-liner:** "The demo sleeps after 12 idle hours because
+  Streamlit's free Cloud hibernates idle containers; the full system runs
+  permanently with `uvicorn` + `streamlit run` on any host."
+
 ## Configuration reference
 
 All runtime knobs live in `src/config.py` (`Config` dataclass) and the module-level
@@ -367,6 +402,207 @@ The sidebar has a **"Use FastAPI service"** toggle. Off (default) runs inference
 locally with the same `src.predict` code; on, it calls the API. The API base URL
 comes from the `NIDS_API_URL` environment variable (default
 `http://localhost:8000`).
+
+## Dashboard UI walkthrough (every element explained)
+
+This section exists so you can open the app, point at anything on screen, and
+explain *what it is, why it's there, and how it works underneath* — useful for
+demos and interviews.
+
+### Sidebar — "🛡️ NIDS Control"
+
+- **"Use FastAPI service" toggle (default: off).** Chooses the inference
+  backend. *Off* → the dashboard imports the same `src.predict` library and
+  scores in-process with the committed `.joblib` models; nothing else needs to
+  run. *On* → every prediction becomes an HTTP call to the FastAPI service,
+  which demonstrates the deployment pattern analysts actually use (UI and
+  model on separate servers). Both paths produce identical results because the
+  API endpoints wrap the same `predict_records()` function.
+- **API URL box.** Pre-filled from the `NIDS_API_URL` environment variable /
+  Streamlit secret, falling back to `http://localhost:8000`. When the toggle is
+  on, the sidebar immediately does a `GET /health` health-check and shows
+  **"API reachable"** (green) or **"API not reachable"** (red). This is the
+  same health endpoint a load-balancer or Kubernetes probe would use.
+- **"Local model loaded" / "No model found"** status. If no `.joblib` exists
+  the app degrades gracefully — Overview metrics, monitoring, reports and
+  sample-driven features still work; only local scoring is disabled.
+- **Pipeline mini-diagram** (Preprocess → Feature select → Train → Evaluate →
+  Predict) — a visible reminder that the UI is just the last stage of an
+  offline-trained ML pipeline.
+
+### Header
+
+Shows the app identity: *"Real-time detection of malicious traffic ·
+UNSW-NB15 · Random Forest + XGBoost"*. The two model families are trained per
+stage and the better one is auto-selected — no single-library lock-in.
+
+### Tab 1 — Overview (the "model zoo" screen)
+
+| UI element | What it shows | Why it matters (talking points) |
+|---|---|---|
+| **Dataset** metric card | `UNSW-NB15` | The benchmark dataset used for training/testing — 42-flow features + 10 attack categories. |
+| **Best model** card | e.g. `XGBoost` | Winner of the RF vs XGBoost bake-off, selected automatically by F1 (binary) / macro-F1 (multiclass). |
+| **Decision threshold** card | e.g. `0.76` | Not the default 0.5! Tuned on a validation split to **maximise precision subject to recall ≥ 0.90** — the core false-positive-reduction story. |
+| **Best F1** card | e.g. `0.8264` | Headline quality metric on the official test set. |
+| **Attack categories** caption | the 10 classes | `Normal, DoS, Exploits, Generic, Reconnaissance, Fuzzers, Analysis, Backdoor, Shellcode, Worms` — shows the second (multiclass) model. |
+| **Model comparison table** | accuracy, precision, recall, F1, ROC-AUC, PR-AUC, MCC, threshold per model | Lets you argue RF vs XGBoost with numbers. **ROC-AUC** = ranking quality across all thresholds; **PR-AUC** emphasises the rare-attack class; **MCC** (Matthews) is a balanced single number robust to class imbalance. |
+| **Model comparison / ROC curves images** | bar chart + ROC plot | The ROC tells you how much better than random the detector is (AUC ≈ 0.957 vs 0.5). |
+| **Per-model drill-down** (dropdown) | confusion matrix image + full metric table for the selected model | The confusion matrix answers the two operational questions: *how many attacks were missed* (FN — cost = intrusion) and *how many benign flows were flagged* (FP — cost = analyst time). |
+| **Download HTML security report** button | self-contained report | Generates a portable HTML file with the metrics table and embedded (base64) figures — simulates the compliance/reporting deliverable a SOC would archive. |
+| **Selected features** chips | e.g. `sttl`, `ct_dst_sport_ltm`, … | Shows the **top 25 of 42** features kept by the selection stage (correlation filter + mutual-information ranking). An interviewer will appreciate knowing the model was slimmed to 25 inputs for speed and overfitting control. |
+
+If no trained model is found, this tab shows *"No metrics yet…"* and works in
+degraded mode — by design, so the demo never crashes on cold start.
+
+### Tab 2 — Single Prediction (42-feature form)
+
+- **Form layout:** three columns — *volume/timing* (duration, packets, bytes,
+  rate, loads), *TCP-baseline* (TTLs, window, base sequence, RTT/synack/ackdat,
+  packet-size means), and *content/context counters* (`trans_depth`,
+  `response_body_len`, the `ct_*` connection counters, FTP/HTTP flags) plus the
+  three categoricals `proto` / `service` / `state`.
+- **Dropdowns for categoricals** (`tcp/udp/icmp…`, `http/dns/ssh…`,
+  `FIN/CON/RST…`): these are one-hot encoded by the pipeline
+  (`OneHotEncoder(handle_unknown="ignore")`) — unknown categories never crash
+  the model, they just don't match learned columns.
+- **Every numeric is clamped to ≥ 0.** The model was trained on physically
+  non-negative quantities; negative input would be out-of-distribution.
+- **"Analyze traffic"** button runs the form and returns a chime-style
+  verdict: 🚨 red alert banner for Attack, ✅ green success for Normal, plus
+  three metric cards:
+  - **Attack probability** — the *calibrated* probability that this flow is
+    malicious (calibration means "0.9 really means 90%", not just a raw score).
+  - **Confidence** — `1 − attack_probability` for normal, i.e. how sure the
+    model is about the shown verdict.
+  - **Attack category** — the multiclass model's guess (`Normal`, `DoS`,
+    `Exploits`, …). Both models run on every prediction.
+- **Severity bands** (explained): probability < threshold → `Normal`; ≥
+  threshold → `Suspicious`; ≥ max(0.80, threshold) → `Malicious`. This gives
+  analysts a triage vocabulary instead of a raw 0–1 number.
+- Pre-filled values come from `GET /example` (a realistic benign flow), so
+  clicking Analyze immediately demonstrates a working prediction.
+
+### Tab 3 — Batch Analysis (bulk scoring)
+
+- **Upload CSV / Local-folder switcher.** Any CSV containing the 42 raw UNSW
+  features (labels not required). The folder mode is for local bulk files and
+  can include subfolders.
+- **One-click sample buttons** (normal / attack / mixed / DoS-Generic) — each
+  loads a bundled fixture so a reviewer can produce results in one click with
+  zero downloads. The **mixed** sample is the demo sweet-spot because it
+  produces both verdicts.
+- **Result cards:** **Flows analyzed** (total), **Attacks detected** (count of
+  Attack verdicts), **Attack rate** (percentage — the operational KPI a SOC
+  cares about).
+- **Severity bar chart** — distribution across Normal / Suspicious /
+  Malicious; a spike in Suspicious+Malicious visually flags an incident even
+  before reading the table.
+- **Results table + Download CSV** — every original row enriched with
+  `verdict`, `severity`, `attack_probability`; downloadable as
+  `nids_predictions.csv` for offline SIEM ingestion.
+- Internally batch calls `/predict/batch` (API mode, max 1000 flows) or the
+  same shared `predict_dataframe()` locally — one code path, two transports.
+
+### Tab 4 — PCAP Analysis (from packets to verdicts)
+
+- Accepts `.pcap` / `.pcapng`, either uploaded, picked one-click
+  (Port scan / SYN flood / Normal HTTP / Mixed) or from a local folder.
+- **"Max flows to score"** slider (100–200,000, default 5,000) — a safety valve
+  to bound memory/CPU on large captures.
+- Pipeline behind the button: **scapy→ flow table→ model→ UI**. The extractor
+  groups packets into bidirectional flows and computes the UNSW-NB15 features
+  (duration, packet/byte counts, TTLs, jitter, TCP handshake timing, `ct_*`
+  window counters). Deep-inspection features (HTTP depth, FTP commands) are
+  approximated as 0 — an honest limitation worth stating.
+- **Outputs:**
+  - *Flows extracted / Attacks detected / Attack rate* metric cards;
+  - left chart: **severity distribution**, right chart: **attack-category
+    distribution** (which DoS/Exploits/Generic mixture was found);
+  - **Top suspicious flows** table — the 10 highest attack-probability flows
+    with their protocol/service/state and category — This is "analyst
+    triage": who do you investigate first.
+- Sample captures make this reproducible: e.g. `port_scan.pcap` should show a
+  high attack rate driven by thousands of small, fast connection-count records.
+
+### Tab 5 — Monitoring (live ops simulation)
+
+- **Play live simulation toggle** — replays the recorded test-set predictions
+  (`reports/test_predictions.csv`) through a `st.fragment(run_every=2.0)`
+  auto-refreshing fragment, i.e. a **streaming-dashboard simulation** without
+  any backend socket. In production you'd swap the feed for a Kafka/socket
+  source; the UI contract is identical.
+- **Events per tick slider** (5–100) controls the replay rate; **Reset
+  stream** rewinds to 0.
+- **Windowed metrics:** *Streamed x/total*, *Attacks in window*,
+  *Malicious* (highest severity seen in the current window), *Window size* —
+  fixed 150-event rolling window to keep the view readable, mimicking an
+  analyst's recent-events pane.
+- **Rolling event table** (`actual / predicted / severity / attack_cat /
+  attack_cat_pred / attack_probability`) — showing *actual* next to
+  *predicted* makes it easy to demo true/false positives live.
+- **Alert explorer** below, with four filters:
+  - **Severity multi-select** (defaults to Malicious + Suspicious — the two
+    buckets an analyst acts on);
+  - **Predicted category** multi-select (e.g. show only DoS);
+  - **Actual** radio (All/Attack/Normal) — lets you check FP/FN mix;
+  - **Min probability** slider (evidence-strength cutoff).
+  - Three follow-up cards: **Matching alerts**, **Precision (filtered)** —
+    the fraction of currently shown alerts that were real attacks, computed
+    live from `y_true` — and **Mean probability**. Export button downloads
+    the filtered alert set as CSV.
+- Communication: this tab demonstrates threshold/severity triage on real
+  model output — a favourite interview question: *"How would an analyst use
+  this in practice?"* Answer: start at Malicious+0.8, widen to Suspicious if
+  the precision stays high.
+
+### Tab 6 — Model Reports (evidence wall)
+
+Grid of all training-time artifacts, each with a story:
+
+| Figure | Interview explanation |
+|---|---|
+| `confusion_matrix_XGBoost/RandomForest.png` | Per-model FP/FN breakdown; the operational cost view. |
+| `roc_curves.png` | ROC-AUC ≈ 0.957 — detector ranks well across all thresholds. |
+| `threshold_curve.png` | Why 0.76 was picked — precision rises while recall floor stays ≥ 0.90. |
+| `model_comparison.png` | RF vs XGBoost side-by-side; XGBoost wins on F1. |
+| `multiclass_confusion_matrix.png` | Where the 10-category model confuses classes (DoS vs Generic, Exploits vs Fuzzers). |
+| `multiclass_comparison.png` | Same bake-off for the category model (macro-F1 criterion). |
+| `feature_importance.png` | The top-25 selected features — good for the *"which features matter?"* question (`sttl`, connection counters dominate). |
+| `correlation_heatmap.png` | Justifies the \|corr\| > 0.95 redundancy filter with a picture. |
+| `class_distribution.png` | Shows UNSW-NB15's class imbalance, motivating class weighting and macro-F1. |
+
+(On the free cloud these figures come straight from the committed
+`reports/` folder; they regenerate identically when you retrain locally
+because `random_state=42`.)
+
+### Cross-cutting UI facts worth mentioning in an interview
+
+- **Dark SOC-style theme** is custom CSS (`.streamlit/config.toml` + in-app
+  stylesheet) — shows you can go beyond Streamlit defaults.
+- **Caching:** metrics and prediction tables are cached (`@st.cache_data`,
+  TTL 300 s) so repeated tab switches don't re-read CSVs.
+- **Graceful degradation:** every tab checks whether its artefacts exist and
+  degrades to an info banner instead of crashing — required because the
+  cloud app may cold-start before files are materialised.
+- **Same brain everywhere:** dashboard, API and CLI all call
+  `src.predict.predict_records/ dataframe`, so verdicts can never disagree
+  between surfaces.
+
+## Feature glossary (the 42 inputs you see in the UI)
+
+Explaining these instantly signals dataset fluency. All are per-flow records
+derived from the UNSW-NB15 exporter:
+
+| Group | Features | Plain-English meaning |
+|---|---|---|
+| **Basic volumetrics** | `dur`, `spkts`, `dpkts`, `sbytes`, `dbytes` | How long the flow lasted and how many packets/bytes went each direction. Scans = many tiny packets; exfil = many upstream bytes. |
+| **Rates & loads** | `rate`, `sload`, `dload` | Packets/s and bytes/s per direction. SYN floods produce extreme source load. |
+| **Loss & pacing** | `sloss`, `dloss`, `sinpkt`, `dinpkt`, `sjit`, `djit` | Retransmitted packets and inter-packet time/jitter — irregular pacing betrays tooling (e.g. fuzzers). |
+| **TCP session** | `swin`, `dwin`, `stcpb`, `dtcpb`, `tcprtt`, `synack`, `ackdat`, `sttl`, `dttl` | TCP window/base-sequence discipline and handshake RTT components; TTLs expose OS fingerprint and spoofing (e.g. `sttl=0` often = crafted packets). |
+| **Payload stats** | `smean`, `dmean`, `trans_depth`, `response_body_len` | Mean bytes/packet and HTTP transaction depth/response size (0 for non-HTTP). |
+| **Windowed connection counters (`ct_*`)** | `ct_srv_src`, `ct_state_ttl`, `ct_dst_ltm`, `ct_src_dport_ltm`, `ct_dst_sport_ltm`, `ct_dst_src_ltm`, `ct_src_ltm`, `ct_srv_dst`, `ct_flw_http_mthd`, `is_ftp_login`, `ct_ftp_cmd` | Count of related connections in the last 100 flows sharing this src/dst/service/port set — the *behavioural* features that make port scans pop out. |
+| **Flags** | `is_sm_ips_ports` | Same src/dst IP and port in the window — a small-but-lethal DoS signal. |
+| **Categoricals** | `proto`, `service`, `state` | Protocol (tcp/udp/…), application service (http/dns/-), and TCP connection state (FIN/CON/RST/…). One-hot encoded. |
 
 ## PCAP scoring
 
