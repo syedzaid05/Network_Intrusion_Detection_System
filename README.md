@@ -482,6 +482,35 @@ degraded mode — by design, so the demo never crashes on cold start.
 - Pre-filled values come from `GET /example` (a realistic benign flow), so
   clicking Analyze immediately demonstrates a working prediction.
 
+**Reading the pre-filled example record** — what each visible default actually
+says about the simulated flow (all shared with the same short HTTPS-like flow):
+*one small TCP session, ~0.12 seconds, 6 packets sent (258 bytes) and 4
+received (172 bytes), a healthy payload-per-packet of 43 bytes each way, no
+loss, low jitter, and only 1 prior connection for the same src/dst/service in
+the recent window* — i.e. a textbook benign single-request flow:
+
+| Field (homepage value) | Interpretation to say out loud |
+|---|---|
+| `proto` = tcp, `service` = -, `state` = FIN | TCP flow that **closed normally** (FIN), and the payload was encrypted/unknown to the exporter, hence service `-`. |
+| `dur` = 0.12 | Session lasted 120 ms — quick request/response, no long-lived suspicious channel. |
+| `spkts` = 6, `dpkts` = 4 | A few packets each way — a normal small exchange; port scans show *many tiny one-way* packets instead. |
+| `sbytes` = 258, `dbytes` = 172 | Balanced small payload; heavy one-way byte counts would suggest exfiltration or flooding. |
+| `rate` = 74.09 | ~74 packets/s — brisk but ordinary; DoS floods push thousands. |
+| `sttl` = 252, `dttl` = 254 | Large TTLs near 255 = normal OS defaults; **TTL 0** is the crafted-spoofed-packet signature. |
+| `sload` = 14158, `dload` = 8500 | Bytes/s per direction derived from above — modest. |
+| `sloss`/`dloss` = 0 | No retransmissions — a clean link (connection-quality sign). |
+| `sinpkt` = 24.3, `dinpkt` = 8.4 | Average gap between packets ~24 ms out, ~8 ms back — regular pacing. |
+| `sjit` = 30.2, `djit` = 11.8 | Low jitter → stable conversation; fuzzers/DNS-tunnelling have erratic pacing. |
+| `swin` = 255, `dwin` = 255 | TCP window in the UNSW exporter's scaled units — healthy defaults. |
+| `stcpb`, `dtcpb` | TCP base sequence numbers (session identifiers); magnitude alone is not a signal. |
+| `tcprtt` = 0, `synack` = 0, `ackdat` = 0 | No measured handshake RTT here (flow sampled post-handshake); in real captures these expose RTT anomalies. |
+| `smean` = 43, `dmean` = 43 | 43 bytes/packet both ways = small normal request payloads. |
+| `trans_depth` = 0, `response_body_len` = 0 | Not a parsed HTTP flow — no HTTP transaction depth or response body. |
+| `ct_srv_src` = 1, `ct_dst_ltm` = 1, `ct_*` = 1 | Only **one** recent connection shared this src/dst/service combination — no hoarding of connections (port-scan signature is high counters with tiny bytes). |
+| `ct_state_ttl` = 0 | No repeated connections with this TTL/state pattern. |
+| `ct_flw_http_mthd` = 0, `ct_ftp_cmd` = 0, `is_ftp_login` = 0 | No HTTP verbs and no FTP activity in this flow/window. |
+| `is_sm_ips_ports` = 0 | **The "small-lethal DoS" flag is OFF** — the recent window has *no* connection with the same src-IP:src-port:dst-IP:dst-port quartet. When this equals 1 (e.g. SYN floods between one host pair), the model treats it as a very strong attack signal, because identical endpoints repeated rapidly is the hallmark of single-vector DoS/tooling. |
+
 ### Tab 3 — Batch Analysis (bulk scoring)
 
 - **Upload CSV / Local-folder switcher.** Any CSV containing the 42 raw UNSW
