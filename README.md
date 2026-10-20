@@ -604,6 +604,48 @@ derived from the UNSW-NB15 exporter:
 | **Flags** | `is_sm_ips_ports` | Same src/dst IP and port in the window — a small-but-lethal DoS signal. |
 | **Categoricals** | `proto`, `service`, `state` | Protocol (tcp/udp/…), application service (http/dns/-), and TCP connection state (FIN/CON/RST/…). One-hot encoded. |
 
+## What is a PCAP? (and how it becomes a prediction)
+
+A **PCAP** (short for *packet capture*) is a file format (`.pcap` / `.pcapng`)
+that records **raw network traffic exactly as it crossed a network interface** —
+every individual packet, its full headers and payload, and the exact timestamp,
+captured by tools like **Wireshark**, **tcpdump**, **tshark** or Python's
+**scapy**. It's the "black-box recorder" of a network: rather than pre-computed
+summaries, it stores the actual traffic so anything can be reconstructed
+afterwards.
+
+- **Why IDS projects love it:** a PCAP is the closest thing to "live traffic"
+  that you can replay offline. Whatever your sensor saw, analysts can re-see.
+- **Limitation:** it sees only what crossed that one interface — encrypted
+  payloads stay encrypted, and anything on other paths/directions is missing.
+
+**How this project turns a PCAP into a verdict** (`src/pcap_extractor.py`):
+
+1. **Packets are read** with scapy — Ethernet → IP → TCP/UDP/ICMP frames.
+2. **Packets are grouped into bidirectional flows**, keyed by
+   `(src IP, src port, dst IP, dst port, protocol)`. A "flow" is one logical
+   conversation (e.g. one HTTP request-response), which is exactly what the
+   UNSW-NB15 feature set describes.
+3. **42 flow features are computed** from the grouped packets: duration, packet
+   and byte counts per direction, rates, TTLs, TCP windows and handshake
+   timings (`tcprtt`/`synack`/`ackdat`), packet-size means, inter-arrival
+   times, jitter, and the `ct_*` connection-window counters. A few
+   deep-packet-inspection features (HTTP transaction depth, FTP commands,
+   retransmission loss) are approximated as `0` — honest approximation, not
+   bit-exact with the official exporter.
+4. **The 42-feature records pass through the exact same model** as CSVs and
+   API requests (`src.predict`), so a PCAP, a spreadsheet row, and a live API
+   call all produce the identical verdict, severity and attack category.
+
+That's why the dashboard has a dedicated **PCAP Analysis** tab: it's the
+"replay real captured traffic" demo — capture packets with Wireshark, drop the
+file in, and watch the SOC triage (attack rate, severity/category charts, top
+suspicious flows) appear.
+
+Interview one-liner: *"PCAP = raw recorded traffic; my pipeline reconstructs
+the UNSW-NB15 flow statistics from those packets with scapy, then scores the
+flows with the same calibrated model used for CSV and API inputs."*
+
 ## PCAP scoring
 
 `src/pcap_extractor.py` groups packets into bidirectional flows with scapy and
