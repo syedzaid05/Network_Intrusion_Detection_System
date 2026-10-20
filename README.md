@@ -30,6 +30,7 @@ tree-based models keep full training under ~4 minutes with no GPU.
 - [Cloud sleep behaviour (Streamlit Community Cloud)](#cloud-sleep-behaviour-streamlit-community-cloud)
 - [Configuration reference](#configuration-reference)
 - [Dataset & features](#dataset--features)
+- [Reference results (UNSW-NB15 official test set)](#reference-results-unsw-nb15-official-test-set)
 - [Pipeline details](#pipeline-details)
 - [Prediction API](#prediction-api)
 - [Dashboard](#dashboard)
@@ -37,7 +38,6 @@ tree-based models keep full training under ~4 minutes with no GPU.
 - [Feature glossary (the 42 inputs you see in the UI)](#feature-glossary-the-42-inputs-you-see-in-the-ui)
 - [PCAP scoring](#pcap-scoring)
 - [Sample data & helper scripts](#sample-data--helper-scripts)
-- [Reference results (UNSW-NB15 official test set)](#reference-results-unsw-nb15-official-test-set)
 - [False-positive reduction](#false-positive-reduction)
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
@@ -287,6 +287,33 @@ Module paths: `MODEL_PATH`, `MULTICLASS_MODEL_PATH`, `METADATA_PATH`,
   training uses **~107,740 unique rows** (test: **~55,945**).
 - The loader auto-corrects mirrors where the train/test filenames are swapped
   (by comparing row counts).
+
+## Reference results (UNSW-NB15 official test set)
+
+Binary classification (Normal vs Attack). Probabilities are **calibrated** and the
+decision threshold is tuned on a validation split to maximise precision subject to
+`recall >= 0.90` (see [False-positive reduction](#false-positive-reduction)):
+
+| Model        | Acc    | Prec   | Recall | F1     | ROC-AUC | PR-AUC | MCC    | FPR    | Thr  | Fit (s) |
+|--------------|--------|--------|--------|--------|---------|--------|--------|--------|------|---------|
+| RandomForest | 0.8475 | 0.7586 | 0.8909 | 0.8195 | 0.9513  | 0.9319 | 0.6956 | 0.1801 | 0.72 | 22.5    |
+| XGBoost ★    | 0.8546 | 0.7707 | 0.8908 | 0.8264 | 0.9572  | 0.9443 | 0.7079 | 0.1684 | 0.76 | 7.8     |
+
+★ best model (selected by F1), saved to `models/ids_pipeline.joblib`.
+
+Attack-category classification (10 classes incl. Normal):
+
+| Model        | Accuracy | Macro F1 | Weighted F1 | Fit (s) |
+|--------------|----------|----------|-------------|---------|
+| RandomForest | 0.6699   | 0.5205   | 0.7177      | 23.6    |
+| XGBoost ★    | 0.7452   | 0.5317   | 0.7730      | 130.6   |
+
+★ best model (selected by macro-F1), saved to `models/ids_multiclass.joblib`.
+
+Categories: `Analysis, Backdoor, DoS, Exploits, Fuzzers, Generic, Normal, Reconnaissance, Shellcode, Worms`.
+
+Numbers reflect deduplicated UNSW-NB15 (`107,740` train / `55,945` test rows);
+re-running `python scripts\run_pipeline.py` reproduces them (`random_state=42`).
 
 ## Pipeline details
 
@@ -727,33 +754,6 @@ python scripts\make_sample_csvs.py  --out data\csvs  --rows 200
 python scripts\make_sample_pcaps.py --out data\pcaps
 python scripts\make_sample_batch.py --rows 2000 --out data\samples\batch_sample.csv
 ```
-
-## Reference results (UNSW-NB15 official test set)
-
-Binary classification (Normal vs Attack). Probabilities are **calibrated** and the
-decision threshold is tuned on a validation split to maximise precision subject to
-`recall >= 0.90` (see [False-positive reduction](#false-positive-reduction)):
-
-| Model        | Acc    | Prec   | Recall | F1     | ROC-AUC | PR-AUC | MCC    | FPR    | Thr  | Fit (s) |
-|--------------|--------|--------|--------|--------|---------|--------|--------|--------|------|---------|
-| RandomForest | 0.8475 | 0.7586 | 0.8909 | 0.8195 | 0.9513  | 0.9319 | 0.6956 | 0.1801 | 0.72 | 22.5    |
-| XGBoost ★    | 0.8546 | 0.7707 | 0.8908 | 0.8264 | 0.9572  | 0.9443 | 0.7079 | 0.1684 | 0.76 | 7.8     |
-
-★ best model (selected by F1), saved to `models/ids_pipeline.joblib`.
-
-Attack-category classification (10 classes incl. Normal):
-
-| Model        | Accuracy | Macro F1 | Weighted F1 | Fit (s) |
-|--------------|----------|----------|-------------|---------|
-| RandomForest | 0.6699   | 0.5205   | 0.7177      | 23.6    |
-| XGBoost ★    | 0.7452   | 0.5317   | 0.7730      | 130.6   |
-
-★ best model (selected by macro-F1), saved to `models/ids_multiclass.joblib`.
-
-Categories: `Analysis, Backdoor, DoS, Exploits, Fuzzers, Generic, Normal, Reconnaissance, Shellcode, Worms`.
-
-Numbers reflect deduplicated UNSW-NB15 (`107,740` train / `55,945` test rows);
-re-running `python scripts\run_pipeline.py` reproduces them (`random_state=42`).
 
 ## False-positive reduction
 
